@@ -1,3 +1,4 @@
+#!/usr/bin/env python3.6
 import requests
 from xml.etree import ElementTree
 import datetime
