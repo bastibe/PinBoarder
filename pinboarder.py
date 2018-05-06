@@ -4,11 +4,11 @@ import datetime
 import re
 import urllib.parse
 import time
+import sys
 from secrets import pinboard_api_token, youtube_api_token
 
 
 def fix_windows():
-     import sys
      import codecs
      sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
 
@@ -34,7 +34,7 @@ def get_all_bookmarks():
     return bookmarks
 
 def fix_bookmark(href, time, description, extended, tag, hash, toread='no', shared='no', meta=None):
-    if 'youtube.com' in href or 'youtu.be' in href:
+    if ('youtube.com' in href or 'youtu.be' in href) and 'playlist' not in href:
         # update tags:
         if not tag:
             tag = 'youtube'
@@ -82,7 +82,8 @@ def add_bookmark(href, time, description, extended, tag, hash, replace, toread='
 
 
 if __name__ == '__main__':
-    fix_windows()
+    if sys.platform == 'win32':
+         fix_windows()
     print('Last Update:', time_of_last_change())
     for bookmark in get_all_bookmarks():
         if (('youtube.com' in bookmark['href'] or 'youtu.be' in bookmark['href']) and
