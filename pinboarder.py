@@ -3,6 +3,7 @@ from xml.etree import ElementTree
 import datetime
 import re
 import urllib.parse
+import time
 from secrets import pinboard_api_token, youtube_api_token
 
 
@@ -25,7 +26,14 @@ def get_recent_bookmarks(count=15):
     bookmarks = [post.attrib for post in root]
     return bookmarks
 
-def fix_bookmark(href, time, description, extended, tag, hash, toread):
+def get_all_bookmarks():
+    r = requests.get('https://api.pinboard.in/v1/posts/all',
+                     params={'auth_token': pinboard_api_token, 'meta': 'no'})
+    root = ElementTree.fromstring(r.text)
+    bookmarks = [post.attrib for post in root]
+    return bookmarks
+
+def fix_bookmark(href, time, description, extended, tag, hash, toread='no', shared='no', meta=None):
     if 'youtube.com' in href or 'youtu.be' in href:
         # update tags:
         if not tag:
@@ -33,9 +41,13 @@ def fix_bookmark(href, time, description, extended, tag, hash, toread):
         elif 'youtube' not in tag:
             tag += ' youtube'
         # update description:
+        if 'youtube.com' in href:
+            video_id = urllib.parse.parse_qs(urllib.parse.urlparse(href).query)['v'][0]
+        elif 'youtu.be' in href:
+            video_id = urllib.parse.urlparse(href).path[1:]
         r = requests.get('https://www.googleapis.com/youtube/v3/videos',
                          params={'key': youtube_api_token,
-                                 'id': urllib.parse.parse_qs(urllib.parse.urlparse(href).query)['v'][0],
+                                 'id': video_id,
                                  'part': 'contentDetails,snippet'})
         data = r.json()
         title = data['items'][0]['snippet']['title']
@@ -43,19 +55,38 @@ def fix_bookmark(href, time, description, extended, tag, hash, toread):
         publishedstring = data['items'][0]['snippet']['publishedAt']
         published = datetime.datetime.strptime(publishedstring, '%Y-%m-%dT%H:%M:%S.%fZ')
         durationstring = data['items'][0]['contentDetails']['duration']
-        m = re.match('PT(?P<h>[0-9]+H)?(?P<m>[0-9]+M)?(?P<s>[0-9]+S)', durationstring)
+        m = re.match('PT(?P<h>[0-9]+H)?(?P<m>[0-9]+M)?(?P<s>[0-9]+S)?', durationstring)
         duration = datetime.time(hour=0 if not m.group('h') else int(m.group('h').strip('H')),
                                  minute=0 if not m.group('m') else int(m.group('m').strip('M')),
                                  second=0 if not m.group('s') else int(m.group('s').strip('S')))
         description = f'{title} ({duration})'
         extended = f'by {channel_name} on {published}'
-    return dict(href=href, time=time, description=description, extended=extended, tag=tag, hash=hash, toread=toread)
+    return dict(href=href, time=time, description=description, extended=extended, tag=tag, hash=hash, shared=shared, toread=toread)
+
+
+def add_bookmark(href, time, description, extended, tag, hash, replace, toread='no', shared='no'):
+    r = requests.get('https://api.pinboard.in/v1/posts/add',
+                     params={'auth_token': pinboard_api_token,
+                             'url': href,
+                             'dt': time,
+                             'description': description,
+                             'extended': extended,
+                             'tags': tag,
+                             'toread': toread,
+                             'shared': shared,
+                             'replace': replace})
+    if 'done' in r.text:
+        return
+    else:
+        raise(RuntimeError(r.text))
 
 
 if __name__ == '__main__':
     fix_windows()
-    # print('Last Update:', time_of_last_change())
-    # bookmarks = get_recent_bookmarks()
-    # print(bookmarks)
-    bookmark = {'href': 'https://www.youtube.com/watch?v=9mPBmUR30-s', 'time': '2018-05-05T18:07:13Z', 'description': 'Good Game Design - God of War (PS4) - YouTube', 'extended': '', 'tag': '', 'hash': '66aabe3904ea7ae583939604fb09a190', 'toread': 'yes'}
-    print(fix_bookmark(**bookmark))
+    print('Last Update:', time_of_last_change())
+    for bookmark in get_all_bookmarks():
+        if (('youtube.com' in bookmark['href'] or 'youtu.be' in bookmark['href']) and
+            'youtube' not in bookmark['tag']):
+            print('fixing', bookmark['description'])
+            add_bookmark(replace='yes', **fix_bookmark(**bookmark))
+            time.sleep(4)
