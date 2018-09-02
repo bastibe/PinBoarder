@@ -51,6 +51,11 @@ def fix_youtube_bookmark(href, time, description, extended, tag, hash, toread='n
                              'part': 'contentDetails,snippet'})
     data = r.json()
 
+    if not data['items']:
+         return dict(href=href, time=time, description=description,
+                     extended=extended, tag=tag, hash=hash,
+                     shared=shared, toread=toread)
+
     # extract metadata:
     title = data['items'][0]['snippet']['title']
     channel_name = data['items'][0]['snippet']['channelTitle']
