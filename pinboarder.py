@@ -61,7 +61,7 @@ def fix_youtube_bookmark(href, time, description, extended, tag, hash, toread='n
     title = data['items'][0]['snippet']['title']
     channel_name = data['items'][0]['snippet']['channelTitle']
     publishedstring = data['items'][0]['snippet']['publishedAt']
-    published = datetime.datetime.strptime(publishedstring, '%Y-%m-%dT%H:%M:%S.%fZ')
+    published = datetime.datetime.strptime(publishedstring, '%Y-%m-%dT%H:%M:%SZ')
     durationstring = data['items'][0]['contentDetails']['duration']
     m = re.match('PT(?P<h>[0-9]+H)?(?P<m>[0-9]+M)?(?P<s>[0-9]+S)?', durationstring)
     duration = datetime.time(hour=0 if not m.group('h') else int(m.group('h').strip('H')),
@@ -101,10 +101,14 @@ if __name__ == '__main__':
                 sys.exit(0)
 
     for bookmark in get_all_bookmarks():
-        if (('youtube.com' in bookmark['href'] or 'youtu.be' in bookmark['href']) and
-            'youtube' not in bookmark['tag'] and 'playlist' not in bookmark['href']):
-            add_bookmark(replace='yes', **fix_youtube_bookmark(**bookmark))
-            time.sleep(4)
+        try:
+            if (('youtube.com' in bookmark['href'] or 'youtu.be' in bookmark['href']) and
+                'youtube' not in bookmark['tag'] and 'playlist' not in bookmark['href'] and
+                'channel' not in bookmark['href']):
+                add_bookmark(replace='yes', **fix_youtube_bookmark(**bookmark))
+                time.sleep(4)
+        except Exception as err:
+             print('could not parse {}'.format(bookmark['href']), 'because', err)
 
     with changefile.open('w') as f:
          f.write(last_change)
