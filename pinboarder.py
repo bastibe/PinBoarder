@@ -42,6 +42,8 @@ def fix_youtube_bookmark(href, time, description, extended, tag, hash, toread='n
         tag += ' youtube'
 
     # get video metadata from google:
+    if 'consent.youtube.com' in href:
+         href = urllib.parse.parse_qs(urllib.parse.urlparse(href).query)['continue'][0]
     if 'youtube.com' in href:
         video_id = urllib.parse.parse_qs(urllib.parse.urlparse(href).query)['v'][0]
     elif 'youtu.be' in href:
